@@ -1,0 +1,53 @@
+---
+title: "factor_modeling_US_treasuries"
+output: html_document
+date: "2025-01-14"
+---
+
+```{r setup, include=FALSE}
+library(fredr)
+fredr_set_key("303c2d68bbb87a379b12111473969ddd")
+
+#fetch data
+fetch_treasury_data <- function(series_id) {
+  fredr(
+    series_id = series_id,
+    observation_start = as.Date(Sys.Date() - 365 * 15), #last X years
+    observation_end = Sys.Date()
+  )
+}
+
+#series IDs
+treasury_series <- c("DGS3MO", "DGS6MO", "DGS1", "DGS2", "DGS3", "DGS5", "DGS7", "DGS10", "DGS20")
+
+
+# Fetch data for all series
+treasury_data <- lapply(treasury_series, fetch_treasury_data)
+treasury_data
+
+# Combine into df
+library(dplyr)
+all_treasury_data <- bind_rows(treasury_data)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
