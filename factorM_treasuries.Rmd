@@ -4,7 +4,7 @@ output: html_document
 date: "2025-01-14"
 ---
 
-```{r setup, include=TRUE}
+```{r data, include=TRUE}
 
 library(fredr)
 fredr_set_key("303c2d68bbb87a379b12111473969ddd")
@@ -45,22 +45,110 @@ ggplot(data = all_treasury_data, aes(x = date, y = value, color = series_id)) +
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+```{r Volatility/Correlations, include = TRUE}
+#mean, std, correlation
+library(dplyr)
+library(tidyr)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+treasury_transposed <- all_treasury_data %>% select(date, series_id, value) %>% pivot_wider(names_from = series_id, values_from = value)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+#yield changes 
+yield_changes <- treasury_transposed %>% arrange(date) %>% mutate(across(-date, ~ . - lag(.), .names = "diff_{.col}")) %>% select(starts_with("diff_"))
 
-```{r cars}
+#omit NA
+yield_changes_clean <- na.omit(yield_changes)
+
+yield_changes_mean <- apply(yield_changes_clean, 2, mean, na.rm = TRUE)
+yield_changes_vol <- apply(yield_changes_clean, 2, sd, na.rm = TRUE)
+
+yield_changes_stats <- data.frame(
+  daily_mean = round(yield_changes_mean, 4),
+  daily_vol = round(yield_changes_vol, 4)
+)
+print(yield_changes_stats)
+
+#correlation
+yield_changes_cor <- cor(yield_changes_clean, use = "complete.obs")
+print(round(yield_changes_cor, 3))
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#fetch FED funds rate
+
+library(fredr)
+fredr_set_key("303c2d68bbb87a379b12111473969ddd")
+
+fed_funds_rate <- fredr(
+  series_id = "FEDFUNDS",
+  observation_start = as.Date("2010-01-01"),  
+  observation_end = Sys.Date())
+
+ggplot(data = fed_funds_rate, aes(x = date, y = value)) +
+  geom_line(color = "blue") +
+  labs(
+    title = "Federal Funds Rate Over Time",
+    x = "Date",
+    y = "Rate (%)"
+  ) +
+  theme_minimal()
+```
+
+```{r yield_curve, include = TRUE}
+#Yield curve vs. FED's rate
+
+library(dplyr)
+library(ggplot2)
+library(plotly)
+
+# Filter for the 2-year and 10-year series
+yield_curves_2_10 <- subset(all_treasury_data, series_id %in% c("DGS2", "DGS10"))
+
+yield_curves_2_10 <- all_treasury_data %>%
+  filter(series_id %in% c("DGS2", "DGS10")) %>%
+  select(date, value, series_id)
+combined_data <- bind_rows(yield_curves_2_10, fed_funds_rate)
+
+p <- ggplot(data = combined_data, aes(x = date, y = value, color = series_id)) +
+  geom_line() +
+  labs(
+    title = "2, 10 year treasury yields + Federal Funds Rate",
+    x = "Date",
+    y = "Rate (%)",
+    color = "Series"
+  ) +
+  theme_minimal() +
+  scale_color_manual(
+    values = c("DGS2" = "blue", "DGS10" = "red", "FEDFUNDS" = "darkgreen"),
+    labels = c("2-Year Treasury Yield", "10-Year Treasury Yield", "Fed Funds Rate")
+  )
+
+#convert to interactive
+interactive_plot <- ggplotly(p)
+interactive_plot
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
 
 ```
 
-## Including Plots
+## PCA
 
-You can also embed plots, for example:
+```{r PCA, include = TRUE}
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+library("FactoMineR")
+
+pca_meta_scaled <- PCA(all_treasury_data, graph = FALSE,scale.unit = FALSE)
+condition <- as.factor(all_treasury_data$series_id) 
+
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+
+```
+
+`{knitr::opts_chunk$set(echo = TRUE)}`
